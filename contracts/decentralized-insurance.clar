@@ -65,6 +65,19 @@
     (ok true)
   ))
 
+;; Renew policy
+(define-public (renew-policy)
+  (let ((policy (unwrap! (map-get? policies tx-sender) err-invalid-policy)))
+    (asserts! (>= (stx-get-balance tx-sender) insurance-fee) err-insufficient-balance)
+    (try! (stx-transfer? insurance-fee tx-sender (as-contract tx-sender)))
+    (map-set policies
+      tx-sender
+      (merge policy { start: block-height })
+    )
+    (ok true)
+  ))
+
+
 ;; Read-only functions
 
 ;; Check if an address has a valid policy
