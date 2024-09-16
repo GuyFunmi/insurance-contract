@@ -82,13 +82,29 @@
 
 ;; Check if an address has a valid policy
 (define-read-only (has-valid-policy (address principal))
-  (let ((policy-start (default-to u0 (map-get? policies address))))
-    (> policy-start u0)))
+  (match (map-get? policies address)
+    policy (< (- block-height (get start policy)) policy-duration)
+    false
+  ))
 
-;; Check if an address has filed a claim
-(define-read-only (has-filed-claim (address principal))
-  (default-to false (map-get? claims address)))
+;; Get policy details
+(define-read-only (get-policy-details (address principal))
+  (map-get? policies address))
+
+;; Get claim history
+(define-read-only (get-claim-history (address principal))
+  (map-get? claims address))
 
 ;; Get contract balance
 (define-read-only (get-contract-balance)
   (stx-get-balance (as-contract tx-sender)))
+
+;; Get total insured amount
+(define-read-only (get-total-insured-amount)
+  (fold + (map get-policy-amount (keys policies)) u0))
+
+(define-private (get-policy-amount (address principal))
+  (match (map-get? policies address)
+    policy (- claim-amount (get total-paid policy))
+    u0
+  ))
