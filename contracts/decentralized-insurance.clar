@@ -6,8 +6,14 @@
 (define-constant claim-amount u1000000) ;; 1 STX
 
 ;; Define data maps
-(define-map policies principal uint)
-(define-map claims principal bool)
+(define-map policies
+  principal
+  {
+    start: uint,
+    claims-count: uint,
+    total-paid: uint
+  })
+(define-map claims principal (list 10 uint))
 
 ;; Public functions
 
