@@ -108,3 +108,27 @@
     policy (- claim-amount (get total-paid policy))
     u0
   ))
+
+;; Admin functions
+
+;; Update insurance fee
+(define-public (update-insurance-fee (new-fee uint))
+  (begin
+    (asserts! (is-eq tx-sender contract-owner) (err u403))
+    (var-set insurance-fee new-fee)
+    (ok true)))
+
+;; Update claim amount
+(define-public (update-claim-amount (new-amount uint))
+  (begin
+    (asserts! (is-eq tx-sender contract-owner) (err u403))
+    (var-set claim-amount new-amount)
+    (ok true)))
+
+;; Withdraw excess funds
+(define-public (withdraw-excess-funds (amount uint))
+  (begin
+    (asserts! (is-eq tx-sender contract-owner) (err u403))
+    (asserts! (<= amount (- (stx-get-balance (as-contract tx-sender)) (get-total-insured-amount))) (err u406))
+    (as-contract (stx-transfer? amount (as-contract tx-sender) contract-owner))))
+
