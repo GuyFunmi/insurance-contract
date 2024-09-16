@@ -4,6 +4,9 @@
 (define-constant contract-owner tx-sender)
 (define-constant insurance-fee u100000) ;; 0.1 STX
 (define-constant claim-amount u1000000) ;; 1 STX
+(define-constant policy-duration u144) ;; 24 hours (assuming 10-minute block times)
+(define-constant max-claims u3) ;; Maximum number of claims per policy
+
 
 ;; Define data maps
 (define-map policies
