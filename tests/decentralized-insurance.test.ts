@@ -1,4 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
+import {
+  buyInsurance,
+  fileClaim,
+  hasValidPolicy,
+  hasFiledClaim,
+  getContractBalance,
+  updateInsuranceFee,
+  updateClaimAmount,
+  withdrawExcessFunds,
+} from '../contracts/decentralized-insurance.clar';
 
 // Mock implementations
 const mockTxSender = (address: string): () => string => () => address;
@@ -11,6 +21,9 @@ vi.mock('./contract', () => ({
   hasValidPolicy: vi.fn(),
   hasFiledClaim: vi.fn(),
   getContractBalance: vi.fn().mockReturnValue(BigInt(1000000)),
+  updateInsuranceFee: vi.fn(),
+  updateClaimAmount: vi.fn(),
+  withdrawExcessFunds: vi.fn(),
 }));
 
 // Test cases
@@ -47,15 +60,25 @@ describe('Decentralized Insurance Contract', () => {
       expect(fileClaim(txSender, blockHeight)).toEqual({ isOk: true, value: true });
     });
 
-    it('should fail when conditions are not met', () => {
+    it('should fail when max claims are reached', () => {
       const txSender = mockTxSender('0x789');
-      const blockHeight = mockBlockHeight(BigInt(100143)); // 143 blocks after policy start
+      const blockHeight = mockBlockHeight(BigInt(100146)); // 146 blocks after policy start
       
       vi.mocked(hasValidPolicy).mockReturnValue(true);
-      vi.mocked(hasFiledClaim).mockReturnValue(false);
+      vi.mocked(hasFiledClaim).mockReturnValue(true); // Reached max claims
       vi.mocked(fileClaim).mockReturnValue({ isOk: false, value: BigInt(1) });
       
       expect(fileClaim(txSender, blockHeight)).toEqual({ isOk: false, value: BigInt(1) });
+    });
+
+    it('should fail when the policy has expired', () => {
+      const txSender = mockTxSender('0x789');
+      const blockHeight = mockBlockHeight(BigInt(200000)); // After policy expiry
+      
+      vi.mocked(hasValidPolicy).mockReturnValue(false);
+      vi.mocked(fileClaim).mockReturnValue({ isOk: false, value: BigInt(2) }); // Policy expired
+      
+      expect(fileClaim(txSender, blockHeight)).toEqual({ isOk: false, value: BigInt(2) });
     });
   });
 
@@ -77,21 +100,72 @@ describe('Decentralized Insurance Contract', () => {
     });
   });
 
-  describe('Has Filed Claim', () => {
-    it('should return true when claim filed', () => {
-      const txSender = mockTxSender('0x789');
+  describe('Update Insurance Fee', () => {
+    it('should update insurance fee when called by contract owner', () => {
+      const txSender = mockTxSender('0xowner');
+      const newFee = BigInt(200000); // New insurance fee
       
-      vi.mocked(hasFiledClaim).mockReturnValue(true);
+      vi.mocked(updateInsuranceFee).mockReturnValue({ isOk: true, value: true });
       
-      expect(hasFiledClaim(txSender())).toBe(true);
+      expect(updateInsuranceFee(txSender(), newFee)).toEqual({ isOk: true, value: true });
     });
 
-    it('should return false when no claim filed', () => {
-      const txSender = mockTxSender('0x789');
+    it('should fail to update insurance fee if called by non-owner', () => {
+      const txSender = mockTxSender('0x123');
+      const newFee = BigInt(200000);
       
-      vi.mocked(hasFiledClaim).mockReturnValue(false);
+      vi.mocked(updateInsuranceFee).mockReturnValue({ isOk: false, value: BigInt(403) }); // Unauthorized error
       
-      expect(hasFiledClaim(txSender())).toBe(false);
+      expect(updateInsuranceFee(txSender(), newFee)).toEqual({ isOk: false, value: BigInt(403) });
+    });
+  });
+
+  describe('Update Claim Amount', () => {
+    it('should update claim amount when called by contract owner', () => {
+      const txSender = mockTxSender('0xowner');
+      const newAmount = BigInt(500000); // New claim amount
+      
+      vi.mocked(updateClaimAmount).mockReturnValue({ isOk: true, value: true });
+      
+      expect(updateClaimAmount(txSender(), newAmount)).toEqual({ isOk: true, value: true });
+    });
+
+    it('should fail to update claim amount if called by non-owner', () => {
+      const txSender = mockTxSender('0x123');
+      const newAmount = BigInt(500000);
+      
+      vi.mocked(updateClaimAmount).mockReturnValue({ isOk: false, value: BigInt(403) });
+      
+      expect(updateClaimAmount(txSender(), newAmount)).toEqual({ isOk: false, value: BigInt(403) });
+    });
+  });
+
+  describe('Withdraw Excess Funds', () => {
+    it('should withdraw excess funds when contract balance is sufficient', () => {
+      const txSender = mockTxSender('0xowner');
+      const amountToWithdraw = BigInt(500000);
+      
+      vi.mocked(withdrawExcessFunds).mockReturnValue({ isOk: true, value: true });
+      
+      expect(withdrawExcessFunds(txSender(), amountToWithdraw)).toEqual({ isOk: true, value: true });
+    });
+
+    it('should fail to withdraw if balance is insufficient', () => {
+      const txSender = mockTxSender('0xowner');
+      const amountToWithdraw = BigInt(2000000); // Exceeds contract balance
+      
+      vi.mocked(withdrawExcessFunds).mockReturnValue({ isOk: false, value: BigInt(406) });
+      
+      expect(withdrawExcessFunds(txSender(), amountToWithdraw)).toEqual({ isOk: false, value: BigInt(406) });
+    });
+
+    it('should fail to withdraw if called by non-owner', () => {
+      const txSender = mockTxSender('0x123');
+      const amountToWithdraw = BigInt(500000);
+      
+      vi.mocked(withdrawExcessFunds).mockReturnValue({ isOk: false, value: BigInt(403) }); // Unauthorized error
+      
+      expect(withdrawExcessFunds(txSender(), amountToWithdraw)).toEqual({ isOk: false, value: BigInt(403) });
     });
   });
 
@@ -101,28 +175,3 @@ describe('Decentralized Insurance Contract', () => {
     });
   });
 });
-
-function buyInsurance(txSender: () => string, blockHeight: () => bigint): { isOk: boolean, value: boolean | bigint } {
-  // Implementation would go here
-  throw new Error("Not implemented");
-}
-
-function fileClaim(txSender: () => string, blockHeight: () => bigint): { isOk: boolean, value: boolean | bigint } {
-  // Implementation would go here
-  throw new Error("Not implemented");
-}
-
-function hasValidPolicy(address: string): boolean {
-  // Implementation would go here
-  throw new Error("Not implemented");
-}
-
-function hasFiledClaim(address: string): boolean {
-  // Implementation would go here
-  throw new Error("Not implemented");
-}
-
-function getContractBalance(): bigint {
-  // Implementation would go here
-  throw new Error("Not implemented");
-}
